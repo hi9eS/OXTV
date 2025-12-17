@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>OXeall Tournament Visualizer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- EXPORT TO IMAGE -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<style>
+:root {
+  --bg: #0b0d12;
+  --panel: #111522;
+  --panel2: #151a2d;
+  --border: #252b45;
+  --text: #eaeaf0;
+  --muted: #9aa1c2;
+  --accent: #ffb000;
+  --good: #3ddc97;
+  --bad: #ff5d5d;
+  --radius: 14px;
+  --mono: ui-monospace, monospace;
+}
+
+* { box-sizing: border-box }
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: radial-gradient(800px 400px at 30% -10%, rgba(255,176,0,.15), transparent),
+              var(--bg);
+  color: var(--text);
+}
+
+header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+h1 { margin: 0; font-size: 18px }
+button {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+button:hover { border-color: var(--accent) }
+
+main {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 16px;
+  padding: 16px;
+}
+
+.panel {
+  background: linear-gradient(180deg, var(--panel), var(--panel2));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+.panel h2 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: var(--accent);
+}
+
+/* ===== FORMS ===== */
+input, select, textarea {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 8px;
+  background: #0c1020;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+}
+
+/* ===== TOURNAMENT VIEW ===== */
+#bracket {
+  padding: 20px;
+  background: #0b0d12;
+}
+
+.round {
+  margin-bottom: 24px;
+}
+.round h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.match {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px;
+  margin-bottom: 8px;
+}
+
+.team {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+}
+.win { color: var(--good) }
+.lose { color: var(--bad) }
+
+/* ===== NEWS ===== */
+.news {
+  border-left: 3px solid var(--accent);
+  padding-left: 10px;
+  margin-bottom: 14px;
+}
+.news h4 {
+  margin: 0;
+}
+.news small {
+  color: var(--muted);
+}
+
+/* ===== EXPORT MODE ===== */
+.export {
+  background: #000;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>OXeall Tournament Visualizer</h1>
+  <button onclick="exportBracket()">Export PNG</button>
+</header>
+
+<main>
+
+<!-- ===== LEFT ADMIN PANEL ===== -->
+<div class="panel">
+  <h2>Create Tournament</h2>
+  <input id="tName" placeholder="Tournament name">
+  <select id="tType">
+    <option value="swiss">Swiss</option>
+    <option value="single">Single Elimination</option>
+    <option value="double">Double Elimination</option>
+    <option value="groups">Group Stage</option>
+  </select>
+  <input id="tTeams" type="number" placeholder="Teams count">
+  <button onclick="createTournament()">Create</button>
+
+  <hr>
+
+  <h2>Add Team</h2>
+  <input id="teamName" placeholder="Team name">
+  <input id="teamSeed" type="number" placeholder="Seed">
+  <button onclick="addTeam()">Add Team</button>
+
+  <hr>
+
+  <h2>Create News</h2>
+  <input id="newsTitle" placeholder="Title">
+  <textarea id="newsBody" placeholder="Content"></textarea>
+  <button onclick="addNews()">Publish</button>
+</div>
+
+<!-- ===== RIGHT CONTENT ===== -->
+<div class="panel">
+  <h2 id="viewTitle">Bracket</h2>
+  <div id="bracket"></div>
+
+  <h2>News</h2>
+  <div id="newsFeed"></div>
+</div>
+
+</main>
+
+<script>
+/* ===== DATA ===== */
+let tournament = null;
+let teams = [];
+let news = [];
+
+/* ===== TOURNAMENT ===== */
+function createTournament() {
+  tournament = {
+    name: tName.value,
+    type: tType.value,
+    teams: parseInt(tTeams.value),
+    round: 1
+  };
+  teams = [];
+  render();
+}
+
+/* ===== TEAMS ===== */
+function addTeam() {
+  teams.push({
+    name: teamName.value,
+    seed: parseInt(teamSeed.value),
+    wins: 0,
+    losses: 0
+  });
+  teams.sort((a,b)=>a.seed-b.seed);
+  render();
+}
+
+/* ===== SWISS LOGIC (simplified) ===== */
+function buildSwiss() {
+  let rounds = {};
+  teams.forEach(t=>{
+    let key = `${t.wins}-${t.losses}`;
+    rounds[key] = rounds[key] || [];
+    rounds[key].push(t);
+  });
+
+  let html = '';
+  Object.keys(rounds).forEach(score=>{
+    html += `<div class="round">
+      <h3>Score ${score}</h3>`;
+    let g = rounds[score];
+    for(let i=0;i<g.length;i+=2){
+      if(!g[i+1]) break;
+      html += matchHTML(g[i], g[i+1]);
+    }
+    html += `</div>`;
+  });
+  return html;
+}
+
+/* ===== MATCH HTML ===== */
+function matchHTML(a,b) {
+  return `
+  <div class="match">
+    <div class="team">
+      <span>${a.name}</span><span>${a.seed}</span>
+    </div>
+    <div class="team">
+      <span>${b.name}</span><span>${b.seed}</span>
+    </div>
+  </div>`;
+}
+
+/* ===== RENDER ===== */
+function render() {
+  if(!tournament) return;
+  viewTitle.textContent = tournament.name + " ("+tournament.type+")";
+
+  if(tournament.type === 'swiss') {
+    bracket.innerHTML = buildSwiss();
+  } else {
+    bracket.innerHTML = '<i>Bracket type visualization placeholder</i>';
+  }
+
+  newsFeed.innerHTML = news.map(n=>`
+    <div class="news">
+      <h4>${n.title}</h4>
+      <small>${n.date}</small>
+      <div>${n.body}</div>
+    </div>
+  `).join('');
+}
+
+/* ===== NEWS ===== */
+function addNews() {
+  news.unshift({
+    title: newsTitle.value,
+    body: newsBody.value,
+    date: new Date().toLocaleString()
+  });
+  render();
+}
+
+/* ===== EXPORT ===== */
+function exportBracket() {
+  document.body.classList.add("export");
+  html2canvas(document.querySelector("#bracket")).then(canvas=>{
+    let a = document.createElement("a");
+    a.href = canvas.toDataURL();
+    a.download = "bracket.png";
+    a.click();
+    document.body.classList.remove("export");
+  });
+}
+</script>
+
+</body>
+</html>
