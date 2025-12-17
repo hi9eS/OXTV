@@ -1,294 +1,1760 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="ru">
 <head>
-<meta charset="UTF-8">
-<title>OXeall Tournament Visualizer</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>OXeall Bracket Studio</title>
+  <meta name="description" content="Private tournament bracket builder & visualizer (Swiss / Single / Double / Groups) with news + PNG export." />
 
-<!-- EXPORT TO IMAGE -->
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <!-- PNG export -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
-<style>
-:root {
-  --bg: #0b0d12;
-  --panel: #111522;
-  --panel2: #151a2d;
-  --border: #252b45;
-  --text: #eaeaf0;
-  --muted: #9aa1c2;
-  --accent: #ffb000;
-  --good: #3ddc97;
-  --bad: #ff5d5d;
-  --radius: 14px;
-  --mono: ui-monospace, monospace;
-}
+  <style>
+    :root{
+      --bg:#0b0d12;
+      --bg2:#0f1220;
+      --panel:#12172a;
+      --panel2:#141a30;
+      --border:#262d4a;
+      --text:#e8ebf7;
+      --muted:#9aa3bf;
+      --accent:#ffb000;
+      --good:#3ddc97;
+      --warn:#ffcc66;
+      --bad:#ff5d5d;
+      --shadow: 0 12px 34px rgba(0,0,0,.35);
+      --r16:16px;
+      --r12:12px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+    [data-theme="light"]{
+      --bg:#f6f7fb;
+      --bg2:#ffffff;
+      --panel:#ffffff;
+      --panel2:#fbfbfe;
+      --border:#e2e6f2;
+      --text:#101428;
+      --muted:#5b6476;
+      --shadow: 0 12px 34px rgba(20,30,60,.10);
+    }
 
-* { box-sizing: border-box }
-body {
-  margin: 0;
-  font-family: system-ui, sans-serif;
-  background: radial-gradient(800px 400px at 30% -10%, rgba(255,176,0,.15), transparent),
-              var(--bg);
-  color: var(--text);
-}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      color:var(--text);
+      background:
+        radial-gradient(900px 450px at 25% -10%, rgba(255,176,0,.18), transparent 60%),
+        radial-gradient(900px 450px at 90% 0%, rgba(61,220,151,.12), transparent 55%),
+        linear-gradient(180deg, var(--bg), var(--bg2));
+    }
 
-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
+    .topbar{
+      position:sticky; top:0; z-index:30;
+      backdrop-filter: blur(14px);
+      background: rgba(10,12,18,.72);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    [data-theme="light"] .topbar{
+      background: rgba(255,255,255,.72);
+      border-bottom:1px solid var(--border);
+    }
+    .wrap{max-width:1300px;margin:0 auto;padding:0 16px}
+    .topbar__inner{
+      padding:12px 16px;
+      display:flex; align-items:center; gap:12px;
+    }
+    .brand{
+      display:flex; align-items:baseline; gap:10px;
+      text-decoration:none; color:var(--text);
+    }
+    .brand__mark{
+      font-weight:900; letter-spacing:.5px;
+      padding:6px 10px; border-radius:12px;
+      background: linear-gradient(90deg, var(--accent), #ffd36b);
+      color:#141414;
+    }
+    .brand__name{font-weight:900}
+    .brand__tag{font-size:12px;color:var(--muted)}
 
-h1 { margin: 0; font-size: 18px }
-button {
-  background: var(--panel2);
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 8px 12px;
-  border-radius: var(--radius);
-  cursor: pointer;
-}
-button:hover { border-color: var(--accent) }
+    .nav{
+      display:flex; gap:8px; flex:1; margin-left:8px;
+    }
+    .nav a{
+      text-decoration:none;
+      color:var(--muted);
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid transparent;
+      font-weight:700;
+      font-size:13px;
+    }
+    .nav a:hover{
+      color:var(--text);
+      background: rgba(255,255,255,.05);
+      border-color: rgba(255,255,255,.08);
+    }
+    .nav a.active{
+      color:var(--text);
+      background: rgba(255,176,0,.12);
+      border-color: rgba(255,176,0,.25);
+    }
 
-main {
-  display: grid;
-  grid-template-columns: 300px 1fr;
-  gap: 16px;
-  padding: 16px;
-}
+    .actions{display:flex; gap:10px; align-items:center}
+    .btn{
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.05);
+      color:var(--text);
+      cursor:pointer;
+      font-weight:800;
+      font-size:13px;
+    }
+    [data-theme="light"] .btn{border-color:var(--border); background:#fff;}
+    .btn:hover{border-color: rgba(255,176,0,.35); background: rgba(255,176,0,.08);}
+    .btn--ghost{background:transparent}
+    .btn--danger:hover{border-color: rgba(255,93,93,.35); background: rgba(255,93,93,.10);}
 
-.panel {
-  background: linear-gradient(180deg, var(--panel), var(--panel2));
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px;
-}
+    .search{
+      position:relative;
+    }
+    .search input{
+      width:320px;
+      padding:10px 34px 10px 12px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      color:var(--text);
+      outline:none;
+      font-weight:700;
+      font-size:13px;
+    }
+    [data-theme="light"] .search input{border-color:var(--border); background:#fff;}
+    .search input:focus{border-color: rgba(255,176,0,.45); box-shadow: 0 0 0 4px rgba(255,176,0,.12);}
+    .search .x{
+      position:absolute; right:8px; top:50%; transform:translateY(-50%);
+      width:22px; height:22px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,.12);
+      background:transparent;
+      color:var(--muted);
+      cursor:pointer;
+      display:grid; place-items:center;
+      font-weight:900;
+    }
+    .search .x:hover{color:var(--text); border-color: rgba(255,176,0,.35);}
 
-.panel h2 {
-  margin: 0 0 10px;
-  font-size: 14px;
-  color: var(--accent);
-}
+    .layout{
+      display:grid;
+      grid-template-columns: 360px 1fr;
+      gap:16px;
+      padding:16px 0 24px;
+      align-items:start;
+    }
+    @media (max-width: 1100px){
+      .layout{grid-template-columns:1fr}
+      .search input{width:100%}
+    }
 
-/* ===== FORMS ===== */
-input, select, textarea {
-  width: 100%;
-  margin-bottom: 8px;
-  padding: 8px;
-  background: #0c1020;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text);
-}
+    .panel{
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid rgba(255,255,255,.10);
+      border-radius: var(--r16);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    [data-theme="light"] .panel{
+      border-color:var(--border);
+      background: linear-gradient(180deg, #fff, #fbfbfe);
+    }
+    .panel__head{
+      padding:14px 16px;
+      border-bottom:1px solid rgba(255,255,255,.07);
+      display:flex; justify-content:space-between; gap:10px;
+      align-items:baseline;
+    }
+    [data-theme="light"] .panel__head{border-bottom:1px solid var(--border);}
+    .panel__title{margin:0; font-size:14px; font-weight:900}
+    .panel__meta{color:var(--muted); font-size:12px}
+    .panel__body{padding:14px 16px}
 
-/* ===== TOURNAMENT VIEW ===== */
-#bracket {
-  padding: 20px;
-  background: #0b0d12;
-}
+    .divider{height:1px;background:rgba(255,255,255,.07); margin:12px 0}
+    [data-theme="light"] .divider{background:var(--border);}
 
-.round {
-  margin-bottom: 24px;
-}
-.round h3 {
-  margin: 0 0 8px;
-  font-size: 14px;
-  color: var(--muted);
-}
+    .field{margin-bottom:10px}
+    .label{display:flex; justify-content:space-between; gap:10px; margin-bottom:6px; color:var(--muted); font-size:12px; font-weight:800}
+    .input, .select, .textarea{
+      width:100%;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+      color:var(--text);
+      outline:none;
+      font-weight:800;
+      font-size:13px;
+    }
+    [data-theme="light"] .input, [data-theme="light"] .select, [data-theme="light"] .textarea{
+      background:#fff; border-color:var(--border);
+    }
+    .textarea{min-height:90px; resize:vertical; font-weight:700; line-height:1.35}
 
-.match {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 8px;
-  margin-bottom: 8px;
-}
+    .row{display:flex; gap:10px}
+    .row > *{flex:1}
 
-.team {
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--mono);
-}
-.win { color: var(--good) }
-.lose { color: var(--bad) }
+    .pill{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      background: rgba(255,255,255,.04);
+    }
+    [data-theme="light"] .pill{border-color:var(--border); background:#fff;}
+    .pill.good{border-color: rgba(61,220,151,.35); color:var(--good); background: rgba(61,220,151,.08);}
+    .pill.warn{border-color: rgba(255,204,102,.35); color:var(--warn); background: rgba(255,204,102,.08);}
+    .pill.bad{border-color: rgba(255,93,93,.35); color:var(--bad); background: rgba(255,93,93,.08);}
 
-/* ===== NEWS ===== */
-.news {
-  border-left: 3px solid var(--accent);
-  padding-left: 10px;
-  margin-bottom: 14px;
-}
-.news h4 {
-  margin: 0;
-}
-.news small {
-  color: var(--muted);
-}
+    .table{width:100%; border-collapse:separate; border-spacing:0 8px}
+    .table th{
+      text-align:left;
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      padding:0 10px 6px;
+    }
+    .table td{
+      padding:10px;
+      background: rgba(0,0,0,.16);
+      border:1px solid rgba(255,255,255,.10);
+      font-weight:800;
+      font-size:13px;
+    }
+    [data-theme="light"] .table td{background:#fff; border-color:var(--border);}
+    .table tr td:first-child{border-radius:12px 0 0 12px}
+    .table tr td:last-child{border-radius:0 12px 12px 0}
 
-/* ===== EXPORT MODE ===== */
-.export {
-  background: #000;
-}
-</style>
+    .chipbar{display:flex; flex-wrap:wrap; gap:8px}
+    .chip{
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      color:var(--muted);
+      cursor:pointer;
+      font-weight:900;
+      font-size:12px;
+    }
+    [data-theme="light"] .chip{border-color:var(--border); background:#fff;}
+    .chip:hover{border-color: rgba(255,176,0,.35); color:var(--text); background: rgba(255,176,0,.08);}
+    .chip.on{border-color: rgba(255,176,0,.45); color:var(--text); background: rgba(255,176,0,.12);}
+
+    /* Bracket canvas */
+    .canvasWrap{
+      padding:14px;
+      background: rgba(0,0,0,.10);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius: var(--r16);
+      overflow:auto;
+    }
+    [data-theme="light"] .canvasWrap{background:#fff; border-color:var(--border);}
+
+    .canvas{
+      min-width: 980px;
+      border-radius: var(--r16);
+      background:
+        radial-gradient(900px 450px at 30% -20%, rgba(255,176,0,.14), transparent 60%),
+        linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+      border:1px solid rgba(255,255,255,.07);
+      padding:16px;
+    }
+    [data-theme="light"] .canvas{border-color:var(--border); background: linear-gradient(180deg, #fff, #fbfbfe);}
+
+    .canvasHead{
+      display:flex; justify-content:space-between; gap:12px; align-items:flex-end;
+      padding:8px 10px 14px;
+      border-bottom:1px solid rgba(255,255,255,.07);
+      margin-bottom:12px;
+    }
+    [data-theme="light"] .canvasHead{border-bottom:1px solid var(--border);}
+    .canvasTitle{font-size:16px; font-weight:1000; margin:0}
+    .canvasSub{color:var(--muted); font-size:12px; font-weight:900}
+
+    /* Swiss view */
+    .swissGrid{display:grid; grid-template-columns: 1fr 1.2fr; gap:14px; align-items:start}
+    @media (max-width: 1100px){ .swissGrid{grid-template-columns:1fr} .canvas{min-width: 0} }
+
+    .cards{display:grid; gap:10px}
+    .card{
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.16);
+      border-radius: 14px;
+      padding:12px;
+    }
+    [data-theme="light"] .card{background:#fff; border-color:var(--border);}
+    .cardTop{display:flex; justify-content:space-between; gap:10px; align-items:baseline}
+    .kicker{font-size:12px; color:var(--muted); font-family:var(--mono); font-weight:900}
+    .title{font-size:13px; font-weight:1000; margin-top:6px}
+    .sub{font-size:12px; color:var(--muted); margin-top:8px; line-height:1.35; font-weight:800}
+
+    .match{
+      border:1px solid rgba(255,255,255,.10);
+      border-radius: 14px;
+      background: rgba(255,255,255,.04);
+      padding:10px;
+    }
+    [data-theme="light"] .match{background:#fff; border-color:var(--border);}
+    .matchRow{display:flex; justify-content:space-between; gap:10px; align-items:center}
+    .team{
+      display:flex; align-items:center; gap:10px; min-width:0;
+      font-weight:1000;
+    }
+    .logo{
+      width:26px; height:26px; border-radius:10px;
+      border:1px solid rgba(255,176,0,.35);
+      background: rgba(255,176,0,.18);
+      display:grid; place-items:center;
+      font-size:12px; font-weight:1000;
+    }
+    .teamName{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+    .seed{font-family:var(--mono); color:var(--muted); font-weight:900}
+    .score{
+      display:flex; align-items:center; gap:8px;
+      font-family:var(--mono);
+      font-weight:1000;
+    }
+    .score input{
+      width:56px;
+      padding:8px 8px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.22);
+      color:var(--text);
+      outline:none;
+      font-weight:1000;
+      text-align:center;
+    }
+    [data-theme="light"] .score input{background:#fff; border-color:var(--border);}
+    .miniBtn{
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.05);
+      color:var(--text);
+      cursor:pointer;
+      font-weight:1000;
+      font-size:12px;
+      white-space:nowrap;
+    }
+    [data-theme="light"] .miniBtn{border-color:var(--border); background:#fff;}
+    .miniBtn:hover{border-color: rgba(255,176,0,.35); background: rgba(255,176,0,.08);}
+    .miniBtn.danger:hover{border-color: rgba(255,93,93,.35); background: rgba(255,93,93,.10);}
+
+    /* Brackets (single/double) via SVG */
+    .svgWrap{
+      width:100%;
+      overflow:auto;
+      border-radius: var(--r16);
+      border:1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.12);
+    }
+    [data-theme="light"] .svgWrap{border-color:var(--border); background:#fff;}
+    svg{display:block}
+
+    /* Modal */
+    .modalBack{
+      position:fixed; inset:0; z-index:100;
+      background: rgba(0,0,0,.55);
+      display:none;
+      align-items:center; justify-content:center;
+      padding:18px;
+    }
+    .modal{
+      max-width: 760px;
+      width:100%;
+      border-radius: var(--r16);
+      border:1px solid rgba(255,255,255,.10);
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    [data-theme="light"] .modal{border-color:var(--border); background: linear-gradient(180deg, #fff, #fbfbfe);}
+    .modalHead{
+      padding:14px 16px;
+      border-bottom:1px solid rgba(255,255,255,.07);
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+    }
+    [data-theme="light"] .modalHead{border-bottom:1px solid var(--border);}
+    .modalBody{padding:14px 16px}
+    .modalFoot{padding:14px 16px; border-top:1px solid rgba(255,255,255,.07); display:flex; justify-content:flex-end; gap:10px}
+    [data-theme="light"] .modalFoot{border-top:1px solid var(--border);}
+    .modalTitle{margin:0; font-size:14px; font-weight:1000}
+
+    /* Presentation mode */
+    body.presentation .topbar,
+    body.presentation .leftPane,
+    body.presentation .panel__head .rightControls,
+    body.presentation .newsPane{
+      display:none !important;
+    }
+    body.presentation .layout{
+      grid-template-columns: 1fr;
+      padding-top: 12px;
+    }
+    body.presentation .panel{
+      box-shadow:none;
+      border:none;
+      background: transparent;
+    }
+    body.presentation .canvasWrap{
+      border:none;
+      background: transparent;
+      padding:0;
+    }
+    body.presentation .canvas{
+      border:1px solid rgba(255,255,255,.10);
+    }
+
+    .hint{color:var(--muted); font-size:12px; line-height:1.4; font-weight:800}
+    .dangerText{color:var(--bad); font-weight:1000}
+    .okText{color:var(--good); font-weight:1000}
+    .muted{color:var(--muted)}
+    .mono{font-family:var(--mono)}
+  </style>
 </head>
 
 <body>
+  <header class="topbar">
+    <div class="wrap topbar__inner">
+      <a class="brand" href="#/">
+        <span class="brand__mark">OX</span>
+        <span class="brand__name">Bracket Studio</span>
+        <span class="brand__tag">private visualizer</span>
+      </a>
 
-<header>
-  <h1>OXeall Tournament Visualizer</h1>
-  <button onclick="exportBracket()">Export PNG</button>
-</header>
+      <nav class="nav" id="nav">
+        <a href="#/" data-route="/" class="active">Dashboard</a>
+        <a href="#/tournaments" data-route="/tournaments">Tournaments</a>
+        <a href="#/news" data-route="/news">News</a>
+        <a href="#/settings" data-route="/settings">Settings</a>
+      </nav>
 
-<main>
+      <div class="actions">
+        <div class="search">
+          <input id="globalSearch" placeholder="Search tournaments, teams, news…" />
+          <div class="x" id="clearSearch" title="Clear">×</div>
+        </div>
+        <button class="btn btn--ghost" id="themeToggle">Theme</button>
+        <button class="btn btn--ghost" id="presentationToggle">Presentation</button>
+        <button class="btn" id="exportPngBtn">Export PNG</button>
+      </div>
+    </div>
+  </header>
 
-<!-- ===== LEFT ADMIN PANEL ===== -->
-<div class="panel">
-  <h2>Create Tournament</h2>
-  <input id="tName" placeholder="Tournament name">
-  <select id="tType">
-    <option value="swiss">Swiss</option>
-    <option value="single">Single Elimination</option>
-    <option value="double">Double Elimination</option>
-    <option value="groups">Group Stage</option>
-  </select>
-  <input id="tTeams" type="number" placeholder="Teams count">
-  <button onclick="createTournament()">Create</button>
+  <main class="wrap">
+    <div class="layout">
+      <!-- LEFT -->
+      <section class="panel leftPane" id="leftPane">
+        <div class="panel__head">
+          <h2 class="panel__title">Admin</h2>
+          <div class="panel__meta" id="adminMeta">Locked</div>
+        </div>
+        <div class="panel__body" id="adminPanel"></div>
+      </section>
 
-  <hr>
+      <!-- RIGHT -->
+      <section class="panel">
+        <div class="panel__head">
+          <div>
+            <h2 class="panel__title" id="viewTitle">Dashboard</h2>
+            <div class="panel__meta" id="viewMeta"></div>
+          </div>
+          <div class="rightControls" style="display:flex; gap:10px; align-items:center">
+            <span class="pill" id="activePill">No active tournament</span>
+          </div>
+        </div>
+        <div class="panel__body" id="app"></div>
+      </section>
+    </div>
+  </main>
 
-  <h2>Add Team</h2>
-  <input id="teamName" placeholder="Team name">
-  <input id="teamSeed" type="number" placeholder="Seed">
-  <button onclick="addTeam()">Add Team</button>
-
-  <hr>
-
-  <h2>Create News</h2>
-  <input id="newsTitle" placeholder="Title">
-  <textarea id="newsBody" placeholder="Content"></textarea>
-  <button onclick="addNews()">Publish</button>
-</div>
-
-<!-- ===== RIGHT CONTENT ===== -->
-<div class="panel">
-  <h2 id="viewTitle">Bracket</h2>
-  <div id="bracket"></div>
-
-  <h2>News</h2>
-  <div id="newsFeed"></div>
-</div>
-
-</main>
+  <!-- MODAL -->
+  <div class="modalBack" id="modalBack" role="dialog" aria-modal="true">
+    <div class="modal">
+      <div class="modalHead">
+        <h3 class="modalTitle" id="modalTitle">Modal</h3>
+        <button class="btn btn--ghost" id="modalClose">Close</button>
+      </div>
+      <div class="modalBody" id="modalBody"></div>
+      <div class="modalFoot" id="modalFoot"></div>
+    </div>
+  </div>
 
 <script>
-/* ===== DATA ===== */
-let tournament = null;
-let teams = [];
-let news = [];
+/* =========================================================
+  OXeall Bracket Studio — Single-file SPA
+  - Storage: localStorage (export/import JSON)
+  - Admin: client-side passphrase lock
+  - Tournaments: Swiss / Single / Double / Groups
+  - News module: create posts (linked to tournament)
+  - Swiss pairing: score groups, anti-rematch, seeded tiebreak
+  - Visuals: Swiss cards + standings; Elim via SVG bracket
+  - Export: PNG of canvas (presentation-friendly)
+========================================================= */
 
-/* ===== TOURNAMENT ===== */
-function createTournament() {
-  tournament = {
-    name: tName.value,
-    type: tType.value,
-    teams: parseInt(tTeams.value),
-    round: 1
-  };
-  teams = [];
-  render();
+/* -------------------- Utilities -------------------- */
+const $ = (sel, root=document) => root.querySelector(sel);
+const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+const uid = (p="id") => `${p}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
+const clamp = (n,min,max) => Math.max(min, Math.min(max, n));
+const safeInt = (v, d=0) => {
+  const n = Number.parseInt(String(v), 10);
+  return Number.isFinite(n) ? n : d;
+};
+const nowISO = () => new Date().toISOString();
+const fmtLocal = (iso) => new Intl.DateTimeFormat(undefined, {
+  year:"numeric", month:"short", day:"2-digit", hour:"2-digit", minute:"2-digit"
+}).format(new Date(iso));
+
+function hashString(str){
+  // simple non-crypto hash (client lock only)
+  let h = 2166136261;
+  for (let i=0;i<str.length;i++){
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(16);
 }
 
-/* ===== TEAMS ===== */
-function addTeam() {
-  teams.push({
-    name: teamName.value,
-    seed: parseInt(teamSeed.value),
-    wins: 0,
-    losses: 0
-  });
-  teams.sort((a,b)=>a.seed-b.seed);
-  render();
+function deepClone(obj){ return JSON.parse(JSON.stringify(obj)); }
+
+/* -------------------- Storage -------------------- */
+const STORE_KEY = "ox_bracket_studio_v1";
+
+function loadStore(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  }catch{ return null; }
 }
 
-/* ===== SWISS LOGIC (simplified) ===== */
-function buildSwiss() {
-  let rounds = {};
-  teams.forEach(t=>{
-    let key = `${t.wins}-${t.losses}`;
-    rounds[key] = rounds[key] || [];
-    rounds[key].push(t);
-  });
+function saveStore(store){
+  localStorage.setItem(STORE_KEY, JSON.stringify(store));
+}
 
-  let html = '';
-  Object.keys(rounds).forEach(score=>{
-    html += `<div class="round">
-      <h3>Score ${score}</h3>`;
-    let g = rounds[score];
-    for(let i=0;i<g.length;i+=2){
-      if(!g[i+1]) break;
-      html += matchHTML(g[i], g[i+1]);
+/* -------------------- Domain Model -------------------- */
+/**
+ Store shape:
+ {
+  version: 1,
+  security: { passHash: string|null, unlockedUntil: number|null },
+  ui: { theme: "dark"|"light", presentation: boolean, search: string },
+  activeTournamentId: string|null,
+  tournaments: {
+    [id]: {
+      id, name, type, createdAt, status,
+      config: { teamsCount, ...typeSpecific },
+      teams: [{id,name,tag,seed}],
+      // matches by stage/round depending type
+      swiss?: { rounds: number, currentRound: number, matchesByRound: { [round]: Match[] }, results: { [matchId]: {a,b,status,notes} } },
+      elim?: { kind:"single"|"double", rounds: RoundNode[], nodes: { [nodeId]: ElimNode }, settings },
+      groups?: { groups: Group[], matches: GroupMatch[], settings },
+      meta: { notes }
     }
-    html += `</div>`;
-  });
-  return html;
+  },
+  news: [{id,title,body,createdAt,tournamentId|null,tags:[]}]
+ }
+*/
+
+function defaultStore(){
+  return {
+    version: 1,
+    security: { passHash: null, unlockedUntil: null },
+    ui: { theme: "dark", presentation: false, search: "" },
+    activeTournamentId: null,
+    tournaments: {},
+    news: []
+  };
 }
 
-/* ===== MATCH HTML ===== */
-function matchHTML(a,b) {
-  return `
-  <div class="match">
-    <div class="team">
-      <span>${a.name}</span><span>${a.seed}</span>
-    </div>
-    <div class="team">
-      <span>${b.name}</span><span>${b.seed}</span>
-    </div>
-  </div>`;
+/* -------------------- Swiss Logic -------------------- */
+/**
+ Swiss rules in this tool:
+ - Teams have record (wins/losses)
+ - Pairing per round:
+   1) Group by record (wins-losses)
+   2) Within each group, sort by: wins desc, Buchholz desc, seed asc (seed tie-break)
+   3) Pair top vs bottom within group (like "high-low"), avoid rematches
+   4) If odd group, float one team down to next lower group (lowest priority by seed / already floated)
+ - Rematch avoidance: try swaps within group; if cannot avoid, allow rematch.
+ - Results update records and Buchholz.
+*/
+
+function swissInit(t){
+  const rounds = t.config.rounds ?? Math.ceil(Math.log2(Math.max(2, t.config.teamsCount||16))) + 2;
+  t.swiss = {
+    rounds,
+    currentRound: 1,
+    matchesByRound: {},
+    teamState: {}, // { teamId: {wins,losses,buchholz,opponents:Set } } (opponents stored as array for serialization)
+    settings: {
+      formatDefault: t.config.formatDefault || "bo3",
+      winReq: t.config.winReq ?? 3,
+      loseReq: t.config.loseReq ?? 3
+    }
+  };
+  for(const tm of t.teams){
+    t.swiss.teamState[tm.id] = { wins:0, losses:0, buchholz:0, opponents:[] };
+  }
 }
 
-/* ===== RENDER ===== */
-function render() {
-  if(!tournament) return;
-  viewTitle.textContent = tournament.name + " ("+tournament.type+")";
+function swissRecomputeBuchholz(t){
+  // buchholz: sum of opponents' wins (simple)
+  const st = t.swiss.teamState;
+  for(const id in st){
+    let sum = 0;
+    for(const opp of st[id].opponents){
+      sum += (st[opp]?.wins ?? 0);
+    }
+    st[id].buchholz = sum;
+  }
+}
 
-  if(tournament.type === 'swiss') {
-    bracket.innerHTML = buildSwiss();
-  } else {
-    bracket.innerHTML = '<i>Bracket type visualization placeholder</i>';
+function swissScoreKey(st){ return `${st.wins}-${st.losses}`; }
+
+function swissGroupTeams(t){
+  const st = t.swiss.teamState;
+  const groups = new Map(); // key -> teamId[]
+  for(const tm of t.teams){
+    const s = st[tm.id];
+    const key = swissScoreKey(s);
+    if(!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(tm.id);
   }
 
-  newsFeed.innerHTML = news.map(n=>`
-    <div class="news">
-      <h4>${n.title}</h4>
-      <small>${n.date}</small>
-      <div>${n.body}</div>
-    </div>
-  `).join('');
+  // Sort group keys by wins desc then losses asc
+  const keys = Array.from(groups.keys()).sort((a,b)=>{
+    const [aw,al] = a.split("-").map(Number);
+    const [bw,bl] = b.split("-").map(Number);
+    if (aw !== bw) return bw - aw;
+    return al - bl;
+  });
+
+  return { keys, groups };
 }
 
-/* ===== NEWS ===== */
-function addNews() {
-  news.unshift({
-    title: newsTitle.value,
-    body: newsBody.value,
-    date: new Date().toLocaleString()
+function swissSortGroup(t, teamIds){
+  const st = t.swiss.teamState;
+  const byId = new Map(t.teams.map(x=>[x.id,x]));
+  // sort by wins desc, buchholz desc, seed asc
+  return teamIds.slice().sort((a,b)=>{
+    const sa = st[a], sb = st[b];
+    if (sa.wins !== sb.wins) return sb.wins - sa.wins;
+    if (sa.buchholz !== sb.buchholz) return sb.buchholz - sa.buchholz;
+    return (byId.get(a).seed ?? 9999) - (byId.get(b).seed ?? 9999);
   });
+}
+
+function hasRematch(t, aId, bId){
+  const opp = t.swiss.teamState[aId].opponents;
+  return opp.includes(bId);
+}
+
+function attemptPairingAvoidRematch(t, sorted){
+  // Pair top vs bottom, try swapping to avoid rematches
+  const pairs = [];
+  const used = new Set();
+  const n = sorted.length;
+  for(let i=0; i<n/2; i++){
+    const a = sorted[i];
+    const b = sorted[n-1-i];
+    pairs.push([a,b]);
+  }
+
+  // If rematches exist, try to fix with simple swaps among second elements
+  for(let i=0; i<pairs.length; i++){
+    let [a,b] = pairs[i];
+    if(!hasRematch(t,a,b)) continue;
+
+    // try find j != i to swap b with pairs[j][1]
+    let fixed = false;
+    for(let j=i+1; j<pairs.length; j++){
+      const [a2,b2] = pairs[j];
+      if(!hasRematch(t,a,b2) && !hasRematch(t,a2,b)){
+        pairs[i] = [a,b2];
+        pairs[j] = [a2,b];
+        fixed = true;
+        break;
+      }
+    }
+    if(!fixed){
+      // try swap with other side: swap a with pairs[j][0]
+      for(let j=i+1; j<pairs.length; j++){
+        const [a2,b2] = pairs[j];
+        if(!hasRematch(t,a2,b) && !hasRematch(t,a,b2)){
+          pairs[i] = [a2,b];
+          pairs[j] = [a,b2];
+          fixed = true;
+          break;
+        }
+      }
+    }
+  }
+
+  return pairs;
+}
+
+function swissGenerateRound(t, round){
+  swissRecomputeBuchholz(t);
+
+  const { keys, groups } = swissGroupTeams(t);
+  const allPairs = [];
+  let floater = null;
+
+  // We will iterate from best record group downwards,
+  // floating one team down if odd.
+  for(let idx=0; idx<keys.length; idx++){
+    const key = keys[idx];
+    let ids = groups.get(key) || [];
+    // apply floater from previous higher group
+    if(floater){
+      ids = ids.concat([floater]);
+      floater = null;
+    }
+    ids = swissSortGroup(t, ids);
+
+    if(ids.length % 2 === 1){
+      // float the lowest priority team down:
+      // choose last in sorted list (worst by our ordering)
+      floater = ids.pop();
+    }
+
+    const pairs = attemptPairingAvoidRematch(t, ids);
+    for(const [a,b] of pairs){
+      allPairs.push([a,b,key]);
+    }
+  }
+
+  if(floater){
+    // if still exists, pair with nearest possible by pulling from last group
+    // safest: bye match (counts as win) only if configured; default: create "BYE" as auto win
+    allPairs.push([floater, null, "BYE"]);
+  }
+
+  // Convert to Match objects
+  const byId = new Map(t.teams.map(x=>[x.id,x]));
+  const matches = allPairs.map(([a,b,grp])=>{
+    const id = uid(`sw_r${round}`);
+    return {
+      id,
+      round,
+      group: grp,
+      format: t.swiss.settings.formatDefault,
+      a: a ? { teamId:a } : null,
+      b: b ? { teamId:b } : null,
+      scoreA: null,
+      scoreB: null,
+      status: b ? "PENDING" : "BYE",
+      notes: ""
+    };
+  });
+
+  t.swiss.matchesByRound[String(round)] = matches;
+
+  // Auto-resolve BYE as win
+  for(const m of matches){
+    if(m.status === "BYE" && m.a?.teamId){
+      m.scoreA = 1;
+      m.scoreB = 0;
+      m.status = "DONE";
+      applySwissResult(t, m.id);
+    }
+  }
+}
+
+function applySwissResult(t, matchId){
+  const round = t.swiss.currentRound;
+  const matches = t.swiss.matchesByRound[String(round)] || [];
+  const m = matches.find(x=>x.id===matchId);
+  if(!m) return;
+
+  if(m.status !== "DONE") return;
+  if(!m.a?.teamId || !m.b?.teamId) return;
+
+  const st = t.swiss.teamState;
+  const aId = m.a.teamId, bId = m.b.teamId;
+
+  // prevent double-apply: recalc from scratch across rounds
+  swissRebuildStateFromHistory(t);
+}
+
+function swissRebuildStateFromHistory(t){
+  // reset
+  const byId = new Map(t.teams.map(x=>[x.id,x]));
+  for(const tm of t.teams){
+    t.swiss.teamState[tm.id] = { wins:0, losses:0, buchholz:0, opponents:[] };
+  }
+
+  // apply results round by round
+  for(let r=1; r<=t.swiss.rounds; r++){
+    const matches = t.swiss.matchesByRound[String(r)] || [];
+    for(const m of matches){
+      if(m.status !== "DONE") continue;
+      const aId = m.a?.teamId, bId = m.b?.teamId;
+      if(!aId) continue;
+      if(!bId) continue;
+
+      const aWin = (safeInt(m.scoreA,0) > safeInt(m.scoreB,0));
+      const bWin = (safeInt(m.scoreB,0) > safeInt(m.scoreA,0));
+
+      if(aWin === bWin) continue; // ignore ties (shouldn't happen)
+
+      if(!t.swiss.teamState[aId].opponents.includes(bId)) t.swiss.teamState[aId].opponents.push(bId);
+      if(!t.swiss.teamState[bId].opponents.includes(aId)) t.swiss.teamState[bId].opponents.push(aId);
+
+      if(aWin){
+        t.swiss.teamState[aId].wins += 1;
+        t.swiss.teamState[bId].losses += 1;
+      }else{
+        t.swiss.teamState[bId].wins += 1;
+        t.swiss.teamState[aId].losses += 1;
+      }
+    }
+  }
+
+  swissRecomputeBuchholz(t);
+}
+
+/* -------------------- Elimination (Single/Double) -------------------- */
+/**
+ We render bracket using SVG for clean screenshots.
+ Implementation:
+ - For SINGLE: standard power-of-two bracket with BYEs (auto-advance)
+ - For DOUBLE: simplified structure (Upper + Lower) for 8/16 teams; robust enough for visualization/editor
+ - Nodes store: teamIdA/teamIdB, scoreA/scoreB, winner -> progresses to next node
+*/
+
+function nextPow2(n){
+  let p=1; while(p<n) p<<=1;
+  return p;
+}
+
+function elimInit(t, kind){
+  const n = t.teams.length;
+  const size = nextPow2(Math.max(2,n));
+  const rounds = Math.log2(size);
+
+  t.elim = {
+    kind,
+    size,
+    rounds,
+    nodes: {},
+    links: [], // {fromNodeId, toNodeId, slot:"A"|"B"} for winner placement (single) and (double simplified)
+    settings: { formatDefault: t.config.formatDefault || "bo3" }
+  };
+
+  if(kind === "single"){
+    buildSingleElim(t);
+  } else {
+    buildDoubleElimSimplified(t);
+  }
+}
+
+function buildSingleElim(t){
+  const size = t.elim.size;
+  const rounds = t.elim.rounds;
+
+  // Seed ordering: 1 vs size, 2 vs size-1, etc.
+  const seedMap = new Map(t.teams.map(x=>[x.seed,x]));
+  const slots = Array(size).fill(null);
+  for(let s=1; s<=size; s++){
+    slots[s-1] = seedMap.get(s)?.id ?? null;
+  }
+
+  // Standard seed pairing for first round: (1,size), (2,size-1), ...
+  const firstPairs = [];
+  for(let i=0;i<size/2;i++){
+    firstPairs.push([slots[i], slots[size-1-i]]);
+  }
+
+  // Create nodes per round
+  const nodeIdAt = (r, i) => `U_r${r}_m${i}`;
+  for(let r=1; r<=rounds; r++){
+    const matches = size / (2**r);
+    for(let i=1;i<=matches;i++){
+      t.elim.nodes[nodeIdAt(r,i)] = {
+        id: nodeIdAt(r,i),
+        bracket: "U",
+        round: r,
+        index: i,
+        format: t.elim.settings.formatDefault,
+        teamA: null, teamB: null,
+        scoreA: null, scoreB: null,
+        status: "PENDING"
+      };
+    }
+  }
+
+  // Fill round 1
+  for(let i=1;i<=firstPairs.length;i++){
+    const n = t.elim.nodes[nodeIdAt(1,i)];
+    n.teamA = firstPairs[i-1][0];
+    n.teamB = firstPairs[i-1][1];
+    // BYE auto-advance
+    if(n.teamA && !n.teamB){ n.scoreA=1; n.scoreB=0; n.status="DONE"; }
+    if(!n.teamA && n.teamB){ n.scoreA=0; n.scoreB=1; n.status="DONE"; }
+  }
+
+  // Winner links to next round
+  for(let r=1; r<rounds; r++){
+    const matches = size / (2**r);
+    for(let i=1;i<=matches;i++){
+      const from = nodeIdAt(r,i);
+      const to = nodeIdAt(r+1, Math.ceil(i/2));
+      const slot = (i % 2 === 1) ? "A" : "B";
+      t.elim.links.push({ fromNodeId: from, toNodeId: to, slot });
+    }
+  }
+
+  // Apply propagation for BYEs immediately
+  elimPropagateAll(t);
+}
+
+function buildDoubleElimSimplified(t){
+  // NOTE: This is a “practical” double-elim generator for visualization/editor,
+  // best for 8 or 16 teams. For other sizes it still builds but structure is simplified.
+  const size = t.elim.size;
+  const rounds = t.elim.rounds;
+
+  // Upper bracket nodes similar to single
+  const nodeU = (r,i) => `U_r${r}_m${i}`;
+  const nodeL = (r,i) => `L_r${r}_m${i}`;
+
+  // Build upper nodes
+  for(let r=1; r<=rounds; r++){
+    const matches = size / (2**r);
+    for(let i=1;i<=matches;i++){
+      t.elim.nodes[nodeU(r,i)] = {
+        id: nodeU(r,i), bracket:"U", round:r, index:i,
+        format: t.elim.settings.formatDefault,
+        teamA:null, teamB:null, scoreA:null, scoreB:null, status:"PENDING"
+      };
+    }
+  }
+
+  // Build lower nodes: typical lower has (rounds-1)*2 - 1 stages in full model,
+  // but we implement 2*(rounds-1) stages with decreasing matches.
+  // Example for 8 (rounds=3): L stages 1..4: 2,2,1,1 matches.
+  const lowerStages = Math.max(2, (rounds-1)*2);
+  for(let s=1; s<=lowerStages; s++){
+    const matches = Math.max(1, size / 4 / (2**Math.floor((s-1)/2)));
+    for(let i=1;i<=matches;i++){
+      t.elim.nodes[nodeL(s,i)] = {
+        id: nodeL(s,i), bracket:"L", round:s, index:i,
+        format: t.elim.settings.formatDefault,
+        teamA:null, teamB:null, scoreA:null, scoreB:null, status:"PENDING"
+      };
+    }
+  }
+
+  // Seed into upper round 1
+  const seedMap = new Map(t.teams.map(x=>[x.seed,x]));
+  const slots = Array(size).fill(null);
+  for(let s=1; s<=size; s++){
+    slots[s-1] = seedMap.get(s)?.id ?? null;
+  }
+  const firstPairs = [];
+  for(let i=0;i<size/2;i++){
+    firstPairs.push([slots[i], slots[size-1-i]]);
+  }
+  for(let i=1;i<=firstPairs.length;i++){
+    const n = t.elim.nodes[nodeU(1,i)];
+    n.teamA = firstPairs[i-1][0];
+    n.teamB = firstPairs[i-1][1];
+    if(n.teamA && !n.teamB){ n.scoreA=1; n.scoreB=0; n.status="DONE"; }
+    if(!n.teamA && n.teamB){ n.scoreA=0; n.scoreB=1; n.status="DONE"; }
+  }
+
+  // Upper winner links (like single)
+  for(let r=1; r<rounds; r++){
+    const matches = size / (2**r);
+    for(let i=1;i<=matches;i++){
+      const from = nodeU(r,i);
+      const to = nodeU(r+1, Math.ceil(i/2));
+      const slot = (i % 2 === 1) ? "A" : "B";
+      t.elim.links.push({ fromNodeId: from, toNodeId: to, slot, mode:"WINNER" });
+    }
+  }
+
+  // Upper loser drops to Lower:
+  // - Losers from U round 1 -> L stage 1 (slot A/B)
+  // - Losers from U round 2 -> L stage 2
+  // - Losers from U round 3 -> L stage 4 ... (simplified mapping)
+  for(let r=1; r<=rounds-1; r++){
+    const matches = size / (2**r);
+    const targetStage = (r === 1) ? 1 : (r === 2 ? 2 : Math.min((r-1)*2, (rounds-1)*2));
+    for(let i=1;i<=matches;i++){
+      const from = nodeU(r,i);
+      const to = nodeL(targetStage, Math.ceil(i/2));
+      const slot = (i % 2 === 1) ? "A" : "B";
+      t.elim.links.push({ fromNodeId: from, toNodeId: to, slot, mode:"LOSER" });
+    }
+  }
+
+  // Lower winner advances through lower stages (chain)
+  const lowerStages = Math.max(2, (rounds-1)*2);
+  for(let s=1; s<lowerStages; s++){
+    const stageMatches = Object.values(t.elim.nodes).filter(n=>n.bracket==="L" && n.round===s).length;
+    for(let i=1;i<=stageMatches;i++){
+      const from = nodeL(s,i);
+      const nextMatches = Object.values(t.elim.nodes).filter(n=>n.bracket==="L" && n.round===s+1).length;
+      const to = nodeL(s+1, Math.ceil(i/2));
+      const slot = (i % 2 === 1) ? "A" : "B";
+      t.elim.links.push({ fromNodeId: from, toNodeId: to, slot, mode:"WINNER" });
+    }
+  }
+
+  // Grand Final node
+  const gfId = "GF";
+  t.elim.nodes[gfId] = {
+    id: gfId, bracket:"GF", round:1, index:1,
+    format: t.elim.settings.formatDefault,
+    teamA:null, teamB:null, scoreA:null, scoreB:null, status:"PENDING"
+  };
+
+  // Upper final winner -> GF A
+  t.elim.links.push({ fromNodeId: nodeU(rounds,1), toNodeId: gfId, slot:"A", mode:"WINNER" });
+
+  // Lower final winner -> GF B (use last lower stage match 1)
+  const lastL = `L_r${lowerStages}_m1`;
+  if(t.elim.nodes[lastL]){
+    t.elim.links.push({ fromNodeId: lastL, toNodeId: gfId, slot:"B", mode:"WINNER" });
+  }
+
+  elimPropagateAll(t);
+}
+
+function elimWinner(node){
+  const a = safeInt(node.scoreA, NaN);
+  const b = safeInt(node.scoreB, NaN);
+  if(!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  if(a===b) return null;
+  return (a>b) ? node.teamA : node.teamB;
+}
+function elimLoser(node){
+  const a = safeInt(node.scoreA, NaN);
+  const b = safeInt(node.scoreB, NaN);
+  if(!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  if(a===b) return null;
+  return (a>b) ? node.teamB : node.teamA;
+}
+
+function elimClearDownstream(t, fromNodeId){
+  // When editing a match, clear all downstream placements from its outputs
+  for(const link of t.elim.links){
+    if(link.fromNodeId !== fromNodeId) continue;
+    const to = t.elim.nodes[link.toNodeId];
+    if(!to) continue;
+    if(link.slot==="A") to.teamA = null;
+    if(link.slot==="B") to.teamB = null;
+    to.scoreA = null; to.scoreB = null; to.status = "PENDING";
+    // cascade
+    elimClearDownstream(t, to.id);
+  }
+}
+
+function elimPropagateAll(t){
+  // Recompute placements from scratch
+  // 1) Reset all non-round1 seeded nodes (except those already seeded)
+  // We'll do repeated relaxation passes until stable.
+  const maxPass = 20;
+  for(let pass=0; pass<maxPass; pass++){
+    let changed = false;
+    for(const link of t.elim.links){
+      const from = t.elim.nodes[link.fromNodeId];
+      const to = t.elim.nodes[link.toNodeId];
+      if(!from || !to) continue;
+
+      const team = (link.mode==="LOSER") ? elimLoser(from) : elimWinner(from);
+      if(!team) continue;
+
+      if(link.slot==="A"){
+        if(to.teamA !== team){ to.teamA = team; changed = true; }
+      }else{
+        if(to.teamB !== team){ to.teamB = team; changed = true; }
+      }
+
+      // Auto-advance BYE situations in downstream
+      if(to.teamA && !to.teamB && to.bracket!=="GF"){
+        to.scoreA = 1; to.scoreB = 0; to.status="DONE"; changed=true;
+      }
+      if(!to.teamA && to.teamB && to.bracket!=="GF"){
+        to.scoreA = 0; to.scoreB = 1; to.status="DONE"; changed=true;
+      }
+    }
+    if(!changed) break;
+  }
+}
+
+/* -------------------- Groups -------------------- */
+function groupsInit(t){
+  // Settings
+  const gCount = t.config.groupCount ?? 2;
+  const teamsPer = t.config.teamsPerGroup ?? Math.floor((t.teams.length || t.config.teamsCount) / gCount);
+
+  // Distribute by seed snake draft
+  const sorted = t.teams.slice().sort((a,b)=>a.seed-b.seed);
+  const groups = Array.from({length:gCount}, (_,i)=>({ id: `G${String.fromCharCode(65+i)}`, name:`Group ${String.fromCharCode(65+i)}`, teamIds: [] }));
+  let dir = 1, gi = 0;
+  for(const tm of sorted){
+    groups[gi].teamIds.push(tm.id);
+    if(dir===1){
+      gi++;
+      if(gi>=gCount){ gi=gCount-1; dir=-1; }
+    }else{
+      gi--;
+      if(gi<0){ gi=0; dir=1; }
+    }
+  }
+
+  t.groups = {
+    settings: {
+      groupCount: gCount,
+      pointsWin: t.config.pointsWin ?? 1,
+      pointsLoss: t.config.pointsLoss ?? 0,
+      formatDefault: t.config.formatDefault || "bo1"
+    },
+    groups,
+    matches: []
+  };
+
+  // Generate round robin matches per group
+  for(const g of groups){
+    const ids = g.teamIds.slice();
+    for(let i=0;i<ids.length;i++){
+      for(let j=i+1;j<ids.length;j++){
+        t.groups.matches.push({
+          id: uid(`grp_${g.id}`),
+          groupId: g.id,
+          format: t.groups.settings.formatDefault,
+          a: ids[i],
+          b: ids[j],
+          scoreA: null,
+          scoreB: null,
+          status: "PENDING"
+        });
+      }
+    }
+  }
+}
+
+function groupsStandings(t, groupId){
+  const g = t.groups.groups.find(x=>x.id===groupId);
+  if(!g) return [];
+  const ptsW = t.groups.settings.pointsWin;
+  const ptsL = t.groups.settings.pointsLoss;
+
+  const table = new Map();
+  for(const id of g.teamIds){
+    table.set(id, { teamId:id, played:0, win:0, loss:0, points:0, diff:0 });
+  }
+
+  const matches = t.groups.matches.filter(m=>m.groupId===groupId);
+  for(const m of matches){
+    if(m.status!=="DONE") continue;
+    const a = safeInt(m.scoreA,0), b = safeInt(m.scoreB,0);
+    const ra = table.get(m.a), rb = table.get(m.b);
+    ra.played++; rb.played++;
+    ra.diff += (a-b); rb.diff += (b-a);
+    if(a>b){
+      ra.win++; rb.loss++;
+      ra.points += ptsW; rb.points += ptsL;
+    }else if(b>a){
+      rb.win++; ra.loss++;
+      rb.points += ptsW; ra.points += ptsL;
+    }
+  }
+
+  // sort by points desc, diff desc, seed asc
+  const byTeam = new Map(t.teams.map(x=>[x.id,x]));
+  return Array.from(table.values()).sort((x,y)=>{
+    if(x.points!==y.points) return y.points-x.points;
+    if(x.diff!==y.diff) return y.diff-x.diff;
+    return (byTeam.get(x.teamId)?.seed ?? 9999) - (byTeam.get(y.teamId)?.seed ?? 9999);
+  });
+}
+
+/* -------------------- App State -------------------- */
+let STORE = loadStore() || defaultStore();
+
+function persist(){
+  saveStore(STORE);
+}
+
+function isUnlocked(){
+  const until = STORE.security.unlockedUntil;
+  if(!until) return false;
+  return Date.now() < until;
+}
+
+function lock(){
+  STORE.security.unlockedUntil = null;
+  persist();
   render();
 }
 
-/* ===== EXPORT ===== */
-function exportBracket() {
-  document.body.classList.add("export");
-  html2canvas(document.querySelector("#bracket")).then(canvas=>{
-    let a = document.createElement("a");
-    a.href = canvas.toDataURL();
-    a.download = "bracket.png";
-    a.click();
-    document.body.classList.remove("export");
-  });
+function unlock(pass){
+  if(!STORE.security.passHash){
+    // first-time set
+    STORE.security.passHash = hashString(pass);
+    STORE.security.unlockedUntil = Date.now() + 6*60*60*1000; // 6 hours
+    persist();
+    render();
+    return true;
+  }
+  if(hashString(pass) === STORE.security.passHash){
+    STORE.security.unlockedUntil = Date.now() + 6*60*60*1000;
+    persist();
+    render();
+    return true;
+  }
+  return false;
 }
-</script>
 
-</body>
-</html>
+function activeTournament(){
+  const id = STORE.activeTournamentId;
+  if(!id) return null;
+  return STORE.tournaments[id] || null;
+}
+
+function setActiveTournament(id){
+  STORE.activeTournamentId = id;
+  persist();
+  render();
+}
+
+/* -------------------- Router -------------------- */
+function route(){
+  const h = (location.hash || "#/").replace("#","");
+  if(h==="/" || h==="") return "/";
+  const top = h.split("?")[0];
+  if(top.startsWith("/tournaments")) return "/tournaments";
+  if(top.startsWith("/news")) return "/news";
+  if(top.startsWith("/settings")) return "/settings";
+  return "/";
+}
+window.addEventListener("hashchange", () => render());
+
+/* -------------------- UI helpers -------------------- */
+function setTheme(theme){
+  STORE.ui.theme = theme;
+  document.documentElement.setAttribute("data-theme", theme);
+  persist();
+}
+function applyThemeFromStore(){
+  document.documentElement.setAttribute("data-theme", STORE.ui.theme || "dark");
+}
+
+function setPresentation(on){
+  STORE.ui.presentation = !!on;
+  persist();
+  document.body.classList.toggle("presentation", STORE.ui.presentation);
+}
+function applyPresentationFromStore(){
+  document.body.classList.toggle("presentation", !!STORE.ui.presentation);
+}
+
+function setSearch(q){
+  STORE.ui.search = q;
+  persist();
+  render();
+}
+
+function logoFromTag(tag){
+  const t = (tag || "").slice(0,3).toUpperCase();
+  return `<div class="logo" aria-hidden="true">${t || "?"}</div>`;
+}
+
+function pillForTournament(t){
+  if(!t) return `<span class="pill">No active tournament</span>`;
+  const type = t.type.toUpperCase();
+  const st = (t.status || "draft").toUpperCase();
+  const cls = (t.status==="live") ? "good" : (t.status==="archived" ? "" : "warn");
+  return `<span class="pill ${cls}">${type} • ${st}</span>`;
+}
+
+/* -------------------- Modal -------------------- */
+function modalOpen(title, bodyHTML, footHTML){
+  $("#modalTitle").textContent = title;
+  $("#modalBody").innerHTML = bodyHTML;
+  $("#modalFoot").innerHTML = footHTML || `<button class="btn btn--ghost" id="modalOk">OK</button>`;
+  $("#modalBack").style.display = "flex";
+  const ok = $("#modalOk");
+  if(ok) ok.addEventListener("click", modalClose);
+}
+function modalClose(){
+  $("#modalBack").style.display = "none";
+  $("#modalBody").innerHTML = "";
+  $("#modalFoot").innerHTML = "";
+}
+$("#modalClose").addEventListener("click", modalClose);
+$("#modalBack").addEventListener("click", (e)=>{
+  if(e.target.id==="modalBack") modalClose();
+});
+
+/* -------------------- Admin Panel -------------------- */
+function renderAdminPanel(){
+  const unlocked = isUnlocked();
+  $("#adminMeta").textContent = unlocked ? "Unlocked" : "Locked";
+
+  if(!unlocked){
+    return `
+      <div class="field">
+        <div class="label"><span>Admin passphrase</span><span class="muted">client-side lock</span></div>
+        <input class="input" id="passInput" type="password" placeholder="Enter passphrase" />
+      </div>
+      <div class="row">
+        <button class="btn" id="unlockBtn">Unlock</button>
+        <button class="btn btn--ghost" id="resetBtn">Reset (wipe)</button>
+      </div>
+      <div class="divider"></div>
+      <div class="hint">
+        Это закрытый инструмент. Без backend это не “настоящая” безопасность: любой, кто откроет сайт и имеет доступ к устройству/браузеру, может вытянуть данные из localStorage.
+        Для реальной приватности нужен Firebase/Supabase.
+      </div>
+    `;
+  }
+
+  const t = activeTournament();
+  const tList = Object.values(STORE.tournaments).sort((a,b)=> (b.createdAt||"").localeCompare(a.createdAt||""));
+  const listHTML = tList.length ? `
+    <table class="table" aria-label="Tournaments">
+      <thead><tr><th>Name</th><th>Type</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        ${tList.map(x=>{
+          const isActive = x.id===STORE.activeTournamentId;
+          return `
+            <tr>
+              <td><span class="mono">${escapeHtml(x.name)}</span></td>
+              <td class="mono">${escapeHtml(x.type)}</td>
+              <td class="mono">${escapeHtml(x.status||"draft")}</td>
+              <td style="white-space:nowrap;">
+                <button class="miniBtn" data-act="setActive" data-id="${x.id}">${isActive?"Active":"Activate"}</button>
+                <button class="miniBtn" data-act="editTournament" data-id="${x.id}">Edit</button>
+              </td>
+            </tr>
+          `;
+        }).join("")}
+      </tbody>
+    </table>
+  ` : `<div class="hint">No tournaments yet. Create one via “New Tournament”.</div>`;
+
+  return `
+    <div class="chipbar">
+      <button class="chip" id="newTournamentBtn">New Tournament</button>
+      <button class="chip" id="newPostBtn">New News Post</button>
+      <button class="chip" id="importBtn">Import JSON</button>
+      <button class="chip" id="exportBtn">Export JSON</button>
+      <button class="chip" id="lockBtn">Lock</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="field">
+      <div class="label"><span>Active tournament</span><span class="muted">${t ? escapeHtml(t.name) : "none"}</span></div>
+      <div>${pillForTournament(t)}</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="field">
+      <div class="label"><span>Manage</span><span class="muted">tournaments list</span></div>
+      ${listHTML}
+    </div>
+  `;
+}
+
+/* -------------------- Tournament Wizard -------------------- */
+function wizardHTML(){
+  // Multi-step wizard (type-specific branches)
+  return `
+    <div class="cards">
+      <div class="card">
+        <div class="cardTop">
+          <div class="kicker">TOURNAMENT WIZARD</div>
+          <span class="pill warn">Create</span>
+        </div>
+        <div class="title">Step 1 — Basics</div>
+        <div class="divider"></div>
+
+        <div class="field">
+          <div class="label"><span>Name</span><span class="muted">display name</span></div>
+          <input class="input" id="w_name" placeholder="e.g., OXCup — Swiss Stage 1" />
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <div class="label"><span>Type</span><span class="muted">format</span></div>
+            <select class="select" id="w_type">
+              <option value="swiss">Swiss Bracket</option>
+              <option value="single">Single Elimination</option>
+              <option value="double">Double Elimination</option>
+              <option value="groups">Group Stage</option>
+            </select>
+          </div>
+          <div class="field">
+            <div class="label"><span>Status</span><span class="muted">draft/live</span></div>
+            <select class="select" id="w_status">
+              <option value="draft">draft</option>
+              <option value="live">live</option>
+              <option value="archived">archived</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <div class="label"><span>Teams (planned)</span><span class="muted">count</span></div>
+            <input class="input" id="w_teamsCount" type="number" min="2" max="64" value="16" />
+          </div>
+          <div class="field">
+            <div class="label"><span>Default format</span><span class="muted">bo1/bo3/bo5</span></div>
+            <select class="select" id="w_format">
+              <option value="bo1">bo1</option>
+              <option value="bo3" selected>bo3</option>
+              <option value="bo5">bo5</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="title">Step 2 — Type settings</div>
+        <div class="hint">Settings below will change depending on the tournament type.</div>
+
+        <div class="divider"></div>
+
+        <div id="typeSettings"></div>
+
+        <div class="divider"></div>
+
+        <div class="title">Step 3 — Teams (seeded)</div>
+        <div class="hint">Add teams now or later. Seeding is the primary ordering key across all formats.</div>
+
+        <div class="row">
+          <div class="field">
+            <div class="label"><span>Team name</span><span class="muted">required</span></div>
+            <input class="input" id="w_teamName" placeholder="Team" />
+          </div>
+          <div class="field">
+            <div class="label"><span>Tag</span><span class="muted">3–5 chars</span></div>
+            <input class="input" id="w_teamTag" placeholder="TAG" />
+          </div>
+          <div class="field">
+            <div class="label"><span>Seed</span><span class="muted">integer</span></div>
+            <input class="input" id="w_teamSeed" type="number" min="1" value="1" />
+          </div>
+        </div>
+        <div class="row">
+          <button class="btn" id="w_addTeam">Add team</button>
+          <button class="btn btn--ghost" id="w_autoFill">Auto-fill seeds</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div id="w_teamTable"></div>
+
+        <div class="divider"></div>
+
+        <div class="row">
+          <button class="btn" id="w_create">Create tournament</button>
+          <button class="btn btn--ghost" id="w_cancel">Cancel</button>
+        </div>
+
+      </div>
+    </div>
+  `;
+}
+
+function typeSettingsHTML(type){
+  if(type==="swiss"){
+    return `
+      <div class="row">
+        <div class="field">
+          <div class="label"><span>Swiss rounds</span><span class="muted">default ~5 for 16</span></div>
+          <input class="input" id="w_rounds" type="number" min="1" max="12" value="5" />
+        </div>
+        <div class="field">
+          <div class="label"><span>Win requirement</span><span class="muted">e.g., 3</span></div>
+          <input class="input" id="w_winReq" type="number" min="1" max="10" value="3" />
+        </div>
+        <div class="field">
+          <div class="label"><span>Lose requirement</span><span class="muted">e.g., 3</span></div>
+          <input class="input" id="w_loseReq" type="number" min="1" max="10" value="3" />
+        </div>
+      </div>
+      <div class="hint">
+        Pairing: score groups, anti-rematch swap attempts, float-down if odd group, Buchholz tie-break.
+      </div>
+    `;
+  }
+  if(type==="single"){
+    return `
+      <div class="row">
+        <div class="field">
+          <div class="label"><span>Bracket size</span><span class="muted">auto next pow2</span></div>
+          <input class="input" id="w_elimSize" type="number" min="2" max="64" value="16" />
+        </div>
+        <div class="field">
+          <div class="label"><span>Seeding</span><span class="muted">1 vs N</span></div>
+          <select class="select" id="w_seedMode">
+            <option value="standard" selected>standard</option>
+          </select>
+        </div>
+      </div>
+      <div class="hint">Single elim renders as SVG for clean screenshots.</div>
+    `;
+  }
+  if(type==="double"){
+    return `
+      <div class="row">
+        <div class="field">
+          <div class="label"><span>Bracket size</span><span class="muted">8/16 recommended</span></div>
+          <input class="input" id="w_elimSize" type="number" min="2" max="64" value="16" />
+        </div>
+        <div class="field">
+          <div class="label"><span>Grand final reset</span><span class="muted">optional</span></div>
+          <select class="select" id="w_gfReset">
+            <option value="off" selected>off</option>
+            <option value="on">on (future)</option>
+          </select>
+        </div>
+      </div>
+      <div class="hint">Double elim here is practical for visualization/editor. Upper+Lower+Grand Final.</div>
+    `;
+  }
+  if(type==="groups"){
+    return `
+      <div class="row">
+        <div class="field">
+          <div class="label"><span>Groups count</span><span class="muted">A..</span></div>
+          <input class="input" id="w_groupCount" type="number" min="1" max="8" value="2" />
+        </div>
+        <div class="field">
+          <div class="label"><span>Points per win</span><span class="muted">default 1</span></div>
+          <input class="input" id="w_pointsWin" type="number" min="0" max="3" value="1" />
+        </div>
+        <div class="field">
+          <div class="label"><span>Points per loss</span><span class="muted">default 0</span></div>
+          <input class="input" id="w_pointsLoss" type="number" min="0" max="3" value="0" />
+        </div>
+      </div>
+      <div class="hint">Teams distributed by seed (snake). Matches generated round-robin.</div>
+    `;
+  }
+  return `<div class="hint">No settings.</div>`;
+}
+
+/* -------------------- Render Views -------------------- */
+function escapeHtml(s){
+  return String(s ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
+}
+
+function setActiveNav(){
+  const r = route();
+  $$("#nav a").forEach(a => a.classList.toggle("active", a.dataset.route===r));
+}
+
+function renderDashboard(){
+  const q = (STORE.ui.search || "").toLowerCase().trim();
+  const ts = Object.values(STORE.tournaments);
+
+  const filtered = q ? ts.filter(t=>{
+    const hay = `${t.name} ${t.type} ${(t.status||"")}`.toLowerCase();
+    return hay.includes(q);
+  }) : ts;
+
+  const active = activeTournament();
+  const activeInfo = active ? `
+    <div class="card">
+      <div class="cardTop">
+        <div class="kicker">ACTIVE TOURNAMENT</div>
+        ${pillForTournament(active)}
+      </div>
+      <div class="title">${escapeHtml(active.name)}</div>
+      <div class="sub">Type: <span class="mono">${escapeHtml(active.type)}</span> • Teams: <span class="mono">${active.teams.length}</span></div>
+      <div class="divider"></div>
+      <div class="chipbar">
+        <button class="chip" id="gotoActive">Open visualization</button>
+        <button class="chip" id="editActive">Edit tournament</button>
+      </div>
+    </div>
+  ` : `
+    <div class="card">
+      <div class="cardTop">
+        <div class="kicker">ACTIVE TOURNAMENT</div>
+        <span class="pill warn">none</span>
+      </div>
+      <div class="title">No active tournament</div>
+      <div class="sub">Create a tournament via Admin → New Tournament.</div>
+    </div>
+  `;
+
+  const stats = `
+    <div class="row">
+      <div class="card" style="flex:1">
+        <div class="kicker">TOTAL TOURNAMENTS</div>
+        <div class="title mono">${ts.length}</div>
+        <div class="sub">Stored locally</div>
+      </div>
+      <div class="card" style="flex:1">
+        <div class="kicker">NEWS POSTS</div>
+        <div class="title mono">${STORE.news.length}</div>
+        <div class="sub">Private feed</div>
+      </div>
+    </div>
+  `;
+
+  const list = filtered.length ? `
+    <table class="table" aria-label="Recent tournaments">
+      <thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Created</th><th></th></tr></thead>
+      <tbody>
+        ${filtered.sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||"")).slice(0,10).map(t=>`
+          <tr>
+            <td>${escapeHtml(t.name)}</td>
+            <td class="mono">${escapeHtml(t.type)}</td>
+            <td class="mono">${escapeHtml(t.status||"draft")}</td>
+            <td class="mono">${fmtLocal(t.createdAt)}</td>
+            <td style="white-space:nowrap">
+              <button class="miniBtn" data-act="setActive" data-id="${t.id}">Activate</button>
+              <button class="miniBtn" data-act="openViz" data-id="${t.id}">Open</button>
+            </td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  ` : `<div class="hint">No tournaments found for current search.</div>`;
+
+  return `
+    <div class="cards">
+      ${activeInfo}
+      ${stats}
+      <div class="card">
+        <div class="cardTop">
+          <div class="kicker">TOURNAMENTS</div>
+          <span class="pill">recent</span>
+        </div>
+        <div class="divider"></div>
+        ${list}
+      </div>
+    </div>
+  `;
+}
+
+function renderTournaments(){
+  const unlocked = isUnlocked();
+  const t = activeTournament();
+  if(!t){
+    return `
+      <div class="cards">
+        <div class="card">
+          <div class="cardTop">
+            <div class="kicker">VISUALIZATION</div>
+            <span class="pill warn">no active</span>
+          </div>
+          <div class="title">Activate a tournament</div>
+          <div class="sub">Use Admin panel to activate or create a tournament.</div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Canvas header
+  const header = `
+    <div class="canvasHead">
+      <div>
+        <h3 class="canvasTitle">${escapeHtml(t.name)}</h3>
+        <div class="canvasSub">
+          ${escapeHtml(t.type.toUpperCase())} • ${escapeHtml((t.status||"draft").toUpperCase())} • Created ${fmtLocal(t.createdAt)}
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; align-items:center">
+        <span class="pill">Teams: <span class="mono">${t.teams.length}</span></span>
+        ${t.type==="swiss" ? `<span class="pill">Round: <span class="mono">${t.swiss?.currentRound ?? 1}/${t.swiss?.rounds ?? "?"}</span></span>` : ``}
+        <button class="miniBtn" id="openTeamsMgr">Teams</button>
+        <button class="miniBtn" id="openMatchesMgr">Matches</button>
+        ${t.type==="swiss" ? `<button class="miniBtn" id="nextSwissRound">Generate / Next Round</button>` : ``}
+      </div>
+    </div>
+  `;
+
+  // Canvas body per type
+  let body = "";
+  if(t.type==="swiss") body = renderSwissCanvas(t);
+  if(t.type==="single" || t.type==="double") body = renderElimCanvas(t);
+  if(t.type==="groups") body = renderGroupsCanvas(t);
+
+  return `
+    <div class="canvasWrap">
+      <div class="canvas" id="exportCanvas">
+        ${header}
+        ${body}
+      </div>
+    </div>
+  `;
+}
+
+function renderSwissCanvas(t){
+  if(!t.swiss){
+    return `<div class="hint">Swiss not initialized. Open tournament edit and initialize Swiss.</div>`;
+  }
+
+  // Current round matches grouped by score group
+  const r = t.swiss.currentRound;
+  const matches = (t.swiss.matchesByRound[String(r)] || []).slice();
+  const byGroup = new Map();
+  for(const m of matches){
+    const g = m.group || "—";
+    if(!byGroup.has(g)) byGroup.set(g, []);
+    byGroup.get(g).push(m);
+  }
+  const groupKeys = Array.from(byGroup.keys()).sort((a,b)=>{
+    if(a==="BYE") return 1;
+    if(b==="BYE") return -1;
+    // sort by wins desc
+    const pa = a.split("-").map(Number);
+    const pb = b.split("-").map(Number);
+    if(pa.length===2 && pb.length===2){
+      if(pa[0]!==pb[0]) return pb[0]-pa[0];
+      return pa[1]-pb[1];
+    }
+    return String(a).localeCompare(String(b));
+  });
+
+  const teamById = new Map(t.teams.map(x=>[x.id,x]));
+  const st = t.swiss.teamState;
+
+  // Standings
+  const standings = t.teams.map(tm=>{
+    const s = st[tm.id];
+    return { id: tm.id, seed: tm.seed, name: tm.name, tag: tm.tag, wins: s.wins, losses: s.losses, buchholz: s.buchholz };
+  }).sort((a,b)=>{
+    if(a.wins!==b.wins) return b.wins-a.wins;
+    if(a.losses!==b.losses) return a.losses-b.losses;
+    if(a.buchholz!==b.buchholz) return b.buchholz-a.buchholz;
+    return a.seed-b.seed;
+  });
+
+  const matchCard = (m) => {
+    const A = m.a?.teamId ? teamById.get(m.a.teamId) : null;
+    const B = m.b?.teamId ? teamById.get(m.b.teamId) : null;
+
+    const scoreA = (m.scoreA ?? "");
+    const scoreB = (m.scoreB ?? "");
+    const done = (m.status==="
